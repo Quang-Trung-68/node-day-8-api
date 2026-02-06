@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const authConfig = require("@/configs/auth.config");
-const revokedToken = require("@/models/revokedToken.model");
+const tokenModel = require("@/models/token.model");
 const authModel = require("@/models/auth.model");
 const AppError = require("@/utils/AppError");
 const { httpCodes } = require("../configs/constants");
@@ -21,9 +21,10 @@ class AuthService {
         authConfig.jwtAccessTokenSecret,
       );
 
-      await revokedToken.saveAccessToken({
+      await tokenModel.saveAccessToken({
         userId: user.id,
         accessToken,
+        expiresAt: new Date(Date.now() + ttl * 1000),
       });
 
       return accessToken;
@@ -44,7 +45,7 @@ class AuthService {
         authConfig.jwtRefreshTokenSecret,
       );
 
-      await revokedToken.saveRefreshToken({
+      await tokenModel.saveRefreshToken({
         userId: user.id,
         refreshToken,
         expiresAt: new Date(Date.now() + ttl * 24 * 60 * 60 * 1000),
@@ -107,7 +108,7 @@ class AuthService {
   async checkValidRefreshToken(refreshToken) {
     try {
       const body = { refreshToken };
-      const isValid = await revokedToken.checkValidRefreshToken(body);
+      const isValid = await tokenModel.checkValidRefreshToken(body);
       if (!isValid) {
         throw new AppError(
           httpCodes.badRequest || 400,
@@ -126,7 +127,7 @@ class AuthService {
   async checkValidAccessToken(accessToken) {
     try {
       const body = { accessToken };
-      const isValid = await revokedToken.checkValidAccessToken(body);
+      const isValid = await tokenModel.checkValidAccessToken(body);
       if (!isValid) {
         throw new AppError(
           httpCodes.badRequest || 400,
@@ -145,7 +146,7 @@ class AuthService {
   async revokeRefreshToken(refreshToken) {
     try {
       const body = { refreshToken };
-      const isValid = await revokedToken.revokeRefreshToken(body);
+      const isValid = await tokenModel.revokeRefreshToken(body);
       if (!isValid) {
         throw new AppError(
           httpCodes.badRequest || 400,
@@ -155,6 +156,20 @@ class AuthService {
       return isValid;
     } catch (error) {
       throw new AppError(httpCodes.badRequest || 400, "Token invalid.");
+    }
+  }
+
+  async cleanupExpiredTokens() {
+    try {
+      const expiredAccessTokens = await tokenModel.destroyAccessToken();
+      const expiredRefreshTokens = await tokenModel.destroyRefreshToken();
+      const totalExpiredTokens = expiredAccessTokens + expiredRefreshTokens;
+      return totalExpiredTokens;
+    } catch (error) {
+      throw new AppError(
+        httpCodes.internalServerError || 500,
+        "Internal server error.",
+      );
     }
   }
 
@@ -188,10 +203,10 @@ class AuthService {
   async logout(credentials) {
     try {
       const { access_token, refresh_token } = credentials;
-      const isValidAccessToken = await revokedToken.checkValidAccessToken({
+      const isValidAccessToken = await tokenModel.checkValidAccessToken({
         accessToken: access_token,
       });
-      const isValidRefreshToken = await revokedToken.checkValidRefreshToken({
+      const isValidRefreshToken = await tokenModel.checkValidRefreshToken({
         refreshToken: refresh_token,
       });
       if (!isValidAccessToken || !isValidRefreshToken) {
@@ -201,6 +216,7 @@ class AuthService {
         );
       }
       await authModel.logout(credentials);
+
       return null;
     } catch (error) {
       throw new AppError(

@@ -1,9 +1,9 @@
 const db = require("@root/database");
 
 async function saveAccessToken(body) {
-  const { userId, accessToken } = body;
-  const query = `INSERT INTO access_tokens (user_id, token) VALUES (?, ?);`;
-  const params = [userId, accessToken];
+  const { userId, accessToken, expiresAt } = body;
+  const query = `INSERT INTO access_tokens (user_id, token, expires_at) VALUES (?, ?, ?);`;
+  const params = [userId, accessToken, expiresAt];
 
   const result = await db.query(query, params);
   return result;
@@ -54,6 +54,24 @@ async function checkValidAccessToken(body) {
   return count > 0;
 }
 
+async function destroyAccessToken() {
+  const query = `
+    DELETE FROM access_tokens
+    WHERE expires_at < NOW()`;
+
+  const [{ affectedRows }] = await db.query(query);
+  return affectedRows;
+}
+
+async function destroyRefreshToken() {
+  const query = `
+    DELETE FROM revoked_tokens
+    WHERE expires_at < NOW()`;
+
+  const [{ affectedRows }] = await db.query(query);
+  return affectedRows;
+}
+
 module.exports = {
   saveAccessToken,
   saveRefreshToken,
@@ -61,4 +79,6 @@ module.exports = {
   checkValidAccessToken,
   revokeRefreshToken,
   revokeAccessToken,
+  destroyAccessToken,
+  destroyRefreshToken,
 };

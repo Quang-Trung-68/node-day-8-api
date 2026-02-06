@@ -1,10 +1,7 @@
 const db = require("@root/database");
 const bcrypt = require("bcrypt");
 const authConfig = require("../configs/auth.config");
-const {
-  revokeAccessToken,
-  revokeRefreshToken,
-} = require("./revokedToken.model");
+const { revokeAccessToken, revokeRefreshToken } = require("./token.model");
 
 async function register(body) {
   const email = body.email;
@@ -75,9 +72,10 @@ async function verifyEmail(body) {
     return [false, "User not found."];
   }
 
-  const result = await db.query("UPDATE users SET email_verified_at = now() WHERE id = ?", [
-    userId,
-  ]);
+  const result = await db.query(
+    "UPDATE users SET email_verified_at = now() WHERE id = ?",
+    [userId],
+  );
   return [true, result];
 }
 
