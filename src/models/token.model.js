@@ -11,7 +11,7 @@ async function saveAccessToken(body) {
 
 async function saveRefreshToken(body) {
   const { userId, refreshToken, expiresAt } = body;
-  const query = `INSERT INTO revoked_tokens (user_id, token, expires_at) VALUES (?, ?, ?);`;
+  const query = `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?);`;
   const params = [userId, refreshToken, expiresAt];
 
   const result = await db.query(query, params);
@@ -20,7 +20,7 @@ async function saveRefreshToken(body) {
 
 async function revokeRefreshToken(body) {
   const { refreshToken } = body;
-  const query = `UPDATE revoked_tokens SET is_revoked = ? WHERE token = ?;`;
+  const query = `UPDATE refresh_tokens SET is_revoked = ? WHERE token = ?;`;
   const params = [1, refreshToken];
 
   const result = await db.query(query, params);
@@ -38,7 +38,7 @@ async function revokeAccessToken(body) {
 
 async function checkValidRefreshToken(body) {
   const { refreshToken } = body;
-  const query = `SELECT COUNT(*) AS count FROM revoked_tokens WHERE token = ? AND is_revoked = 0 AND expires_at >= now()`;
+  const query = `SELECT COUNT(*) AS count FROM refresh_tokens WHERE token = ? AND is_revoked = 0 AND expires_at >= now()`;
   const params = [refreshToken];
 
   const [[{ count }]] = await db.query(query, params);
@@ -65,7 +65,7 @@ async function destroyAccessToken() {
 
 async function destroyRefreshToken() {
   const query = `
-    DELETE FROM revoked_tokens
+    DELETE FROM refresh_tokens
     WHERE expires_at < NOW()`;
 
   const [{ affectedRows }] = await db.query(query);
